@@ -25,7 +25,7 @@ def fetch_and_convert_xml():
                     "combustivel": v.get("combustivel"),
                     "cambio": v.get("cambio"),
                     "portas": v.get("numeroportas"),
-                    "preco": float(v.get("preco", "0").replace(",", "").strip()),
+                    "preco": v.get("preco"),
                     "opcionais": v.get("opcionais").get("opcional"),
                     "imagens": v.get("fotos", {}).get("foto", [])
                 }
