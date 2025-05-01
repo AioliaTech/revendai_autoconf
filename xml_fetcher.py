@@ -13,25 +13,21 @@ def fetch_and_convert_xml():
 
         parsed_vehicles = []
 
-        for v in data_dict["ADS"]["AD"]:
+        for v in data_dict["estoque"]["veiculo"]:
             try:
                 parsed = {
-                    "id": v.get("ID"),
-                    "titulo": v.get("TITLE"),
-                    "marca": v.get("MAKE"),
-                    "modelo": v.get("MODEL"),
-                    "ano": v.get("YEAR"),
-                    "ano_fabricacao": v.get("FABRIC_YEAR"),
-                    "km": v.get("MILEAGE"),
-                    "cor": v.get("COLOR"),
-                    "combustivel": v.get("FUEL"),
-                    "cambio": v.get("GEAR"),
-                    "motor": v.get("MOTOR"),
-                    "portas": v.get("DOORS"),
-                    "categoria": v.get("BODY_TYPE"),
-                    "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
-                    "opcionais": v.get("ACCESSORIES"),
-                    "imagens": v.get("IMAGES", {}).get("IMAGE_URL", [])
+                    "id": v.get("idveiculo"),
+                    "marca": v.get("marca"),
+                    "modelo": v.get("modelo"),
+                    "ano": v.get("anomodelo"),
+                    "km": v.get("quilometragem"),
+                    "cor": v.get("cor"),
+                    "combustivel": v.get("combustivel"),
+                    "cambio": v.get("cambio"),
+                    "portas": v.get("numeroportas"),
+                    "preco": float(v.get("preco", "0").replace(",", "").strip()),
+                    "opcionais": v.get("opcionais").get("opcional"),
+                    "imagens": v.get("fotos", {}).get("foto", [])
                 }
                 parsed_vehicles.append(parsed)
             except Exception as e:
