@@ -27,7 +27,7 @@ def fetch_and_convert_xml():
                     "portas": v.get("numeroportas"),
                     "preco": v.get("preco"),
                     "opcionais": v.get("opcionais").get("opcional"),
-                    "imagens": v.get("fotos", {}).get("foto", [])
+                    "imagens": v.get("foto", [])
                 }
                 parsed_vehicles.append(parsed)
             except Exception as e:
