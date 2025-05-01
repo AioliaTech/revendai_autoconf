@@ -8,12 +8,13 @@ def fetch_and_convert_xml():
     try:
         if not XML_URL:
             raise ValueError("Variável XML_URL não definida")
+
         response = requests.get(XML_URL)
         data_dict = xmltodict.parse(response.content)
 
         parsed_vehicles = []
 
-        for v in data_dict["estoque"]["veiculo"]:
+        for v in data_dict["ADS"]["AD"]:
             try:
                 parsed = {
                     "id": v.get("idveiculo"),
@@ -26,12 +27,16 @@ def fetch_and_convert_xml():
                     "cambio": v.get("cambio"),
                     "portas": v.get("numeroportas"),
                     "preco": v.get("preco"),
-                    "opcionais": v.get("opcionais").get("opcional"),
-                    "imagens": v.get("fotos", {}).get("foto", [])
+                    "opcionais": v.get("opcionais").get("opcional") if v.get("opcionais") else None,
+                    "imagens": [
+                        img["url"].split("?")[0]
+                        for img in v.get("fotos", {}).get("foto", [])
+                        if isinstance(img, dict) and "url" in img
+                    ]
                 }
                 parsed_vehicles.append(parsed)
             except Exception as e:
-                print(f"[ERRO ao converter veículo ID {v.get('ID')}] {e}")
+                print(f"[ERRO ao converter veículo ID {v.get('idveiculo')}] {e}")
 
         data_dict = {
             "veiculos": parsed_vehicles,
