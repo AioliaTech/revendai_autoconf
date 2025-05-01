@@ -14,7 +14,7 @@ def fetch_and_convert_xml():
 
         parsed_vehicles = []
 
-        for v in data_dict["ADS"]["AD"]:
+        for v in data_dict["estoque"]["veiculo"]:
             try:
                 parsed = {
                     "id": v.get("idveiculo"),
