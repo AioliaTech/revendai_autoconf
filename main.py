@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-import json, os
 from unidecode import unidecode
+from rapidfuzz import fuzz
 from apscheduler.schedulers.background import BackgroundScheduler
 from xml_fetcher import fetch_and_convert_xml
+import json, os
 
 app = FastAPI()
 
 def normalizar(texto: str) -> str:
-    return unidecode(texto).lower()
+    return unidecode(texto).lower().replace("-", "").replace(" ", "")
 
 def converter_preco(valor_str):
     try:
@@ -38,16 +39,33 @@ def get_data(request: Request):
 
     query_params = dict(request.query_params)
     valormax = query_params.pop("ValorMax", None)
+    order = query_params.pop("order", "desc").lower()
 
-    # Filtros dinâmicos
+    # 🧠 Campos onde vamos aplicar fuzzy
+    campos_textuais = ["modelo", "titulo", "marca", "cor", "categoria", "cambio", "combustivel"]
+
+    # 🔍 Filtro fuzzy global por palavra-chave
     for chave, valor in query_params.items():
-        valor_normalizado = normalizar(valor)
-        vehicles = [
-            v for v in vehicles
-            if chave in v and valor_normalizado in normalizar(str(v[chave]))
-        ]
+        if not valor.strip():
+            continue
 
-    # Filtro por valor máximo
+        valor_normalizado = normalizar(valor)
+        resultados = []
+
+        for v in vehicles:
+            for campo in campos_textuais:
+                conteudo = v.get(campo, "")
+                if not conteudo:
+                    continue
+                texto = normalizar(str(conteudo))
+                score = fuzz.partial_ratio(texto, valor_normalizado)
+                if score >= 81:
+                    resultados.append(v)
+                    break  # já bateu em um campo
+
+        vehicles = resultados
+
+    # 💰 Filtro por preço máximo
     if valormax:
         try:
             teto = float(valormax)
@@ -58,10 +76,11 @@ def get_data(request: Request):
         except:
             return {"error": "Formato inválido para ValorMax"}
 
-    # Ordena por preço (maior para menor)
+    # 🔽 Ordenação por preço
+    reverse = order != "asc"
     vehicles.sort(
         key=lambda v: converter_preco(v["preco"]) if "preco" in v else 0,
-        reverse=True
+        reverse=reverse
     )
 
     return JSONResponse(content=vehicles)
