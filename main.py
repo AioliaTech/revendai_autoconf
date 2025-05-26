@@ -9,16 +9,63 @@ import json, os
 app = FastAPI()
 
 def normalizar(texto: str) -> str:
-    return unidecode(texto).lower().replace("-", "").replace(" ", "")
+    return unidecode(texto).lower().replace("-", "").replace(" ", "").strip()
 
 def converter_preco(valor_str):
     if valor_str is None:
         return None
     try:
-        valor = str(valor_str).replace("R$", "").replace(",", "").strip()
-        return float(valor)
+        return float(valor_str)
     except ValueError:
         return None
+
+def filtrar_veiculos(vehicles, filtros, valormax=None):
+    campos_textuais = ["modelo", "titulo", "marca", "cor", "categoria", "cambio", "combustivel"]
+    vehicles_filtrados = vehicles.copy()
+
+    for chave, valor in filtros.items():
+        if not valor:
+            continue
+        termo_busca = normalizar(valor)
+        resultados = []
+        for v in vehicles_filtrados:
+            match = False
+            conteudo = v.get(chave, "")
+            if not conteudo:
+                continue
+            texto = normalizar(str(conteudo))
+
+            if termo_busca in texto or texto in termo_busca:
+                match = True
+            else:
+                score = fuzz.token_set_ratio(texto, termo_busca)
+                if score >= 75:
+                    match = True
+
+            if chave == "categoria":
+                if normalizar(v.get("categoria", "")) != termo_busca:
+                    match = False
+
+            if match:
+                resultados.append(v)
+        vehicles_filtrados = resultados
+
+    if valormax:
+        try:
+            teto = float(valormax)
+            vehicles_filtrados = [
+                v for v in vehicles_filtrados
+                if "preco" in v and converter_preco(v["preco"]) is not None and converter_preco(v["preco"]) <= teto
+            ]
+        except:
+            return []
+
+    vehicles_filtrados.sort(
+        key=lambda v: converter_preco(v["preco"]) if "preco" in v else 0,
+        reverse=True
+    )
+
+    return vehicles_filtrados
 
 @app.on_event("startup")
 def agendar_tarefas():
@@ -42,56 +89,66 @@ def get_data(request: Request):
 
     query_params = dict(request.query_params)
     valormax = query_params.pop("ValorMax", None)
-    order = query_params.pop("order", "desc").lower()
 
-    # 🧠 Campos onde vamos aplicar fuzzy
-    campos_textuais = ["modelo", "titulo", "marca", "cor", "categoria", "cambio", "combustivel"]
+    filtros = {
+        "modelo": query_params.get("modelo"),
+        "marca": query_params.get("marca")
+    }
 
-    # 🔍 Filtro fuzzy global por palavra-chave
-    for chave, valor in query_params.items():
-        if not valor.strip():
-            continue
+    resultado = filtrar_veiculos(vehicles, filtros, valormax)
 
-        valor_normalizado = normalizar(valor)
-        resultados = []
+    if resultado:
+        return JSONResponse(content={
+            "resultados": resultado,
+            "total_encontrado": len(resultado)
+        })
 
-        for v in vehicles:
-            for campo in campos_textuais:
-                conteudo = v.get(campo, "")
-                if not conteudo:
-                    continue
-                texto = normalizar(str(conteudo))
+    alternativas = []
 
-                # Fuzzy mais preciso
-                score = fuzz.token_set_ratio(texto, valor_normalizado)
-                if score >= 75:  # Ajuste conforme necessidade
-                    resultados.append(v)
-                    break  # já bateu em um campo
-
-        vehicles = resultados
-
-    # 💰 Filtro por preço máximo
-    if valormax:
-        try:
-            teto = float(valormax)
-            filtrados = []
+    # 1. Remover ValorMax
+    alternativa1 = filtrar_veiculos(vehicles, filtros)
+    if alternativa1:
+        alternativas = alternativa1
+    else:
+        # 2. Remover marca
+        filtros_sem_marca = {"modelo": filtros.get("modelo")}
+        alternativa2 = filtrar_veiculos(vehicles, filtros_sem_marca, valormax)
+        if alternativa2:
+            alternativas = alternativa2
+        else:
+            # 3. Buscar por categoria inferida
+            modelo = filtros.get("modelo")
+            categoria_inferida = None
             for v in vehicles:
-                preco = converter_preco(v.get("preco"))
-                # print(f"Modelo: {v.get('modelo')} | Preço: {v.get('preco')} | Convertido: {preco}")  # debug opcional
-                if preco is not None and preco <= teto:
-                    filtrados.append(v)
-            vehicles = filtrados
-        except ValueError:
-            return {"error": "Formato inválido para ValorMax"}
+                if normalizar(v.get("modelo", "")) == normalizar(modelo or ""):
+                    categoria_inferida = v.get("categoria")
+                    break
+            if categoria_inferida:
+                filtros_categoria = {"categoria": categoria_inferida}
+                alternativa3 = filtrar_veiculos(vehicles, filtros_categoria)
+                if alternativa3:
+                    alternativas = alternativa3
 
-    # 🔽 Ordenação por preço
-    reverse = order != "asc"
-    vehicles.sort(
-        key=lambda v: converter_preco(v["preco"]) if "preco" in v else 0,
-        reverse=reverse
-    )
+    if alternativas:
+        alternativa = [
+            {"titulo": v.get("titulo", ""), "preco": v.get("preco", "")}
+            for v in alternativas
+        ]
+        return JSONResponse(content={
+            "resultados": [],
+            "total_encontrado": 0,
+            "instrucao_ia": "Não encontramos veículos com os parâmetros informados. Veja estas opções mais próximas:",
+            "alternativa": {
+                "resultados": alternativa,
+                "total_encontrado": len(alternativa)
+            }
+        })
 
-    return JSONResponse(content=vehicles)
+    return JSONResponse(content={
+        "resultados": [],
+        "total_encontrado": 0,
+        "instrucao_ia": "Não encontramos veículos com os parâmetros informados e também não encontramos opções próximas."
+    })
 
 @app.get("/api/status")
 def get_status():
