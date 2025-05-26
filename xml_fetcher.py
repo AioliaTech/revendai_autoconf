@@ -4,6 +4,15 @@ from datetime import datetime
 XML_URL = os.getenv("XML_URL")
 JSON_FILE = "data.json"
 
+def converter_preco_xml(valor_str):
+    if not valor_str:
+        return None
+    try:
+        valor = str(valor_str).replace("R$", "").replace(".", "").replace(",", ".").strip()
+        return float(valor)
+    except ValueError:
+        return None
+
 def fetch_and_convert_xml():
     try:
         if not XML_URL:
@@ -26,7 +35,7 @@ def fetch_and_convert_xml():
                     "combustivel": v.get("combustivel"),
                     "cambio": v.get("cambio"),
                     "portas": v.get("numeroportas"),
-                    "preco": v.get("preco"),
+                    "preco": converter_preco_xml(v.get("preco")),
                     "opcionais": v.get("opcionais").get("opcional") if v.get("opcionais") else None,
                     "imagens": [
                         img["url"].split("?")[0]
