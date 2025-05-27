@@ -102,7 +102,7 @@ def fetch_and_convert_xml():
                     "portas": v.get("numeroportas"),
                     "preco": converter_preco_xml(v.get("preco")),
                     "opcionais": v.get("opcionais").get("opcional") if v.get("opcionais") else None,
-                    "imagens": [
+                    "fotos": [
                         img["url"].split("?")[0]
                         for img in v.get("fotos", {}).get("foto", [])
                         if isinstance(img, dict) and "url" in img
