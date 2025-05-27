@@ -66,7 +66,10 @@ def inferir_categoria(modelo):
     if not modelo:
         return None
     modelo_norm = unidecode(modelo).lower().replace("-", "").replace(" ", "").strip()
-    return MAPEAMENTO_CATEGORIAS.get(modelo_norm)
+    for mapeado, categoria in MAPEAMENTO_CATEGORIAS.items():
+        if mapeado in modelo_norm:
+            return categoria
+    return None
 
 def converter_preco_xml(valor_str):
     if not valor_str:
