@@ -35,9 +35,9 @@ def filtrar_veiculos(vehicles, filtros, valormax=None):
                 if not conteudo:
                     continue
                 texto = normalizar(str(conteudo))
-                score = fuzz.partial_ratio(termo_busca, texto)
-                if score >= 75:
-                    match = True
+score = fuzz.token_set_ratio(texto, termo_busca)
+if score >= 75:
+    match = True
                     break
             if chave == "categoria" and normalizar(v.get("categoria", "")) != termo_busca:
                 match = False
