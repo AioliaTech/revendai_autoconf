@@ -45,7 +45,7 @@ def fetch_and_convert_xml():
     "opcionais": [
     img.get("FEATURE")
     for img in v.get("FEATURES", [])
-]
+],
     "fotos": {
     "url_fotos": [
         img.get("IMAGE_URL")
