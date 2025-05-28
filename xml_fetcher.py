@@ -44,8 +44,8 @@ def fetch_and_convert_xml():
     "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
     "opcionais": v.get("FEATURES", {}).get("FEATURE", []),
     "fotos": {
-        "url_fotos": v.get("IMAGES", {}).get("IMAGE_URL", [])
-    }
+    "url_fotos": [img.get("IMAGE_URL") for img in v.get("IMAGES", [])]
+}
 }
                 parsed_vehicles.append(parsed)
             except Exception as e:
