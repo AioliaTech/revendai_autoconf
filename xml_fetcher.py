@@ -41,8 +41,11 @@ def fetch_and_convert_xml():
     "motor": v.get("MOTOR"),
     "portas": v.get("DOORS"),
     "categoria": v.get("BODY"),
-    "preco": float(v.get("PRICE", "0").replace(",", "").strip())
-    
+    "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
+    "opcionais": v.get("FEATURES", {}).get("FEATURE", []),
+    "fotos": {
+        "url_fotos": v.get("IMAGES", {}).get("IMAGE_URL", [])
+    }
 }
                 parsed_vehicles.append(parsed)
             except Exception as e:
