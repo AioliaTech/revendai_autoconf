@@ -8,19 +8,78 @@ import json, os
 
 app = FastAPI()
 
+MAPEAMENTO_CATEGORIAS = {
+    # Hatch
+    "gol": "Hatch", "uno": "Hatch", "palio": "Hatch", "celta": "Hatch", "ka": "Hatch",
+    "fiesta": "Hatch", "march": "Hatch", "sandero": "Hatch", "onix": "Hatch",
+    "hb20": "Hatch", "i30": "Hatch", "golf": "Hatch", "polo": "Hatch", "fox": "Hatch",
+    "up": "Hatch", "fit": "Hatch", "city": "Hatch", "yaris": "Hatch", "etios": "Hatch",
+    "clio": "Hatch", "corsa": "Hatch", "bravo": "Hatch", "punto": "Hatch", "208": "Hatch",
+    "argo": "Hatch", "mobi": "Hatch", "c3": "Hatch", "picanto": "Hatch",
+
+    # Sedan
+    "civic": "Sedan", "corolla": "Sedan", "sentra": "Sedan", "versa": "Sedan", "jetta": "Sedan",
+    "fusca": "Sedan", "prisma": "Sedan", "voyage": "Sedan", "siena": "Sedan", "grand siena": "Sedan",
+    "cruze": "Sedan", "cobalt": "Sedan", "logan": "Sedan", "fluence": "Sedan", "cerato": "Sedan",
+    "elantra": "Sedan", "virtus": "Sedan", "accord": "Sedan", "altima": "Sedan", "fusion": "Sedan",
+    "mazda3": "Sedan", "mazda6": "Sedan", "passat": "Sedan",
+
+    # SUV
+    "duster": "SUV", "ecosport": "SUV", "hrv": "SUV", "compass": "SUV", "renegade": "SUV",
+    "tracker": "SUV", "kicks": "SUV", "captur": "SUV", "creta": "SUV", "tucson": "SUV",
+    "santa fe": "SUV", "sorento": "SUV", "sportage": "SUV", "outlander": "SUV",
+    "asx": "SUV", "pajero": "SUV", "tr4": "SUV", "aircross": "SUV", "tiguan": "SUV",
+    "t-cross": "SUV", "rav4": "SUV", "cx5": "SUV", "forester": "SUV", "wrx": "SUV",
+    "land cruiser": "SUV", "cherokee": "SUV", "grand cherokee": "SUV", "xtrail": "SUV",
+    "murano": "SUV", "cx9": "SUV", "edge": "SUV",
+
+    # Caminhonete
+    "hilux": "Caminhonete", "ranger": "Caminhonete", "s10": "Caminhonete", "l200": "Caminhonete",
+    "triton": "Caminhonete", "saveiro": "Utilitário", "strada": "Utilitário", "montana": "Utilitário",
+    "oroch": "Utilitário", "toro": "Caminhonete", "frontier": "Caminhonete", "amarok": "Caminhonete",
+    "gladiator": "Caminhonete", "maverick": "Caminhonete", "colorado": "Caminhonete", "dakota": "Caminhonete",
+
+    # Utilitário
+    "kangoo": "Utilitário", "partner": "Utilitário", "doblo": "Utilitário", "fiorino": "Utilitário",
+    "berlingo": "Utilitário", "express": "Utilitário", "combo": "Utilitário",
+
+    # Furgão
+    "master": "Furgão", "sprinter": "Furgão", "ducato": "Furgão", "daily": "Furgão",
+    "jumper": "Furgão", "boxer": "Furgão", "trafic": "Furgão", "transit": "Furgão",
+
+    # Coupe
+    "camaro": "Coupe", "mustang": "Coupe", "tt": "Coupe", "supra": "Coupe",
+    "370z": "Coupe", "rx8": "Coupe", "challenger": "Coupe", "corvette": "Coupe",
+
+    # Conversível
+    "z4": "Conversível", "boxster": "Conversível", "miata": "Conversível",
+    "beetle cabriolet": "Conversível", "slk": "Conversível", "911 cabrio": "Conversível",
+
+    # Minivan / Station Wagon
+    "spin": "Minivan", "livina": "Minivan", "caravan": "Minivan", "touran": "Minivan",
+    "parati": "Station Wagon", "quantum": "Station Wagon", "sharan": "Minivan",
+    "zafira": "Minivan", "picasso": "Minivan", "grand c4": "Minivan",
+
+    # Off-road
+    "wrangler": "Off-road", "troller": "Off-road", "defender": "Off-road", "bronco": "Off-road",
+    "samurai": "Off-road", "jimny": "Off-road", "land cruiser": "Off-road"
+}
+
+def inferir_categoria_por_modelo(modelo_buscado):
+    modelo_norm = normalizar(modelo_buscado)
+    return MAPEAMENTO_CATEGORIAS.get(modelo_norm)
+
 def normalizar(texto: str) -> str:
     return unidecode(texto).lower().replace("-", "").replace(" ", "").strip()
 
 def converter_preco(valor_str):
-    if valor_str is None:
-        return None
     try:
-        return float(valor_str)
-    except ValueError:
+        return float(str(valor_str).replace(",", "").replace("R$", "").strip())
+    except:
         return None
 
 def filtrar_veiculos(vehicles, filtros, valormax=None):
-    campos_textuais = ["modelo", "versao", "marca", "cor", "categoria", "cambio", "combustivel"]
+    campos_textuais = ["modelo", "titulo", "marca", "cor", "categoria", "cambio", "combustivel"]
     vehicles_filtrados = vehicles.copy()
 
     for chave, valor in filtros.items():
@@ -35,12 +94,14 @@ def filtrar_veiculos(vehicles, filtros, valormax=None):
                 if not conteudo:
                     continue
                 texto = normalizar(str(conteudo))
-score = fuzz.token_set_ratio(texto, termo_busca)
-if score >= 75:
-    match = True
+                if termo_busca in texto or texto in termo_busca:
+                    match = True
                     break
-            if chave == "categoria" and normalizar(v.get("categoria", "")) != termo_busca:
-                match = False
+                score_ratio = fuzz.ratio(texto, termo_busca)
+                score_token = fuzz.token_set_ratio(texto, termo_busca)
+                if score_ratio >= 70 or score_token >= 70:
+                    match = True
+                    break
             if match:
                 resultados.append(v)
         vehicles_filtrados = resultados
@@ -48,18 +109,18 @@ if score >= 75:
     if valormax:
         try:
             teto = float(valormax)
+            maximo = teto * 1.3
             vehicles_filtrados = [
                 v for v in vehicles_filtrados
-                if "preco" in v and converter_preco(v["preco"]) is not None and converter_preco(v["preco"]) <= teto
+                if "preco" in v and converter_preco(v["preco"]) is not None and converter_preco(v["preco"]) <= maximo
             ]
         except:
             return []
 
     vehicles_filtrados.sort(
-        key=lambda v: converter_preco(v["preco"]) if "preco" in v else 0,
-        reverse=True
-    )
-
+    key=lambda v: converter_preco(v["preco"]) if "preco" in v else float('inf'),
+    reverse=True
+)
     return vehicles_filtrados
 
 @app.on_event("startup")
@@ -110,31 +171,26 @@ def get_data(request: Request):
             alternativas = alternativa2
         else:
             modelo = filtros.get("modelo")
-            categoria_inferida = None
-            for v in vehicles:
-                if normalizar(v.get("modelo", "")) == normalizar(modelo or ""):
-                    categoria_inferida = v.get("categoria")
-                    break
+            categoria_inferida = inferir_categoria_por_modelo(modelo) if modelo else None
             if categoria_inferida:
                 filtros_categoria = {"categoria": categoria_inferida}
-                alternativa3 = filtrar_veiculos(vehicles, filtros_categoria)
+                alternativa3 = filtrar_veiculos(vehicles, filtros_categoria, valormax)
                 if alternativa3:
                     alternativas = alternativa3
+                else:
+                    alternativa4 = filtrar_veiculos(vehicles, filtros_categoria)
+                    if alternativa4:
+                        alternativas = alternativa4
 
     if alternativas:
         alternativa = [
-            {
-                "modelo": v.get("modelo", ""),
-                "ano": v.get("ano", ""),
-                "preco": v.get("preco", "")
-            }
+            {"modelo": v.get("modelo", ""), "ano": v.get("ano", ""),"preco": v.get("preco", "")}
             for v in alternativas
         ]
-
         return JSONResponse(content={
             "resultados": [],
             "total_encontrado": 0,
-            "instrucao_ia": "Não encontramos veículos com os parâmetros informados. Veja estas opções mais próximas:",
+            "instrucao_ia": "Não encontramos veículos com os parâmetros informados dentro do valor desejado. Seguem as opções mais próximas.",
             "alternativa": {
                 "resultados": alternativa,
                 "total_encontrado": len(alternativa)
@@ -146,57 +202,3 @@ def get_data(request: Request):
         "total_encontrado": 0,
         "instrucao_ia": "Não encontramos veículos com os parâmetros informados e também não encontramos opções próximas."
     })
-
-@app.get("/api/status")
-def get_status():
-    if not os.path.exists("data.json"):
-        return {"status": "Nenhum dado ainda foi gerado."}
-
-    with open("data.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    timestamp = data.get("_updated_at", "Desconhecido")
-    return {"ultima_atualizacao": timestamp}
-
-@app.get("/api/info")
-def get_info():
-    if not os.path.exists("data.json"):
-        return {"status": "Nenhum dado disponível"}
-
-    with open("data.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    try:
-        vehicles = data["veiculos"]
-    except:
-        return {"error": "Formato de dados inválido"}
-
-    total = len(vehicles)
-    marcas = set()
-    anos = []
-    precos = []
-
-    for v in vehicles:
-        if "marca" in v:
-            marcas.add(v["marca"])
-        if "ano" in v:
-            try:
-                anos.append(int(v["ano"]))
-            except:
-                pass
-        if "preco" in v:
-            try:
-                preco = converter_preco(v["preco"])
-                if preco is not None:
-                    precos.append(preco)
-            except:
-                pass
-
-    return {
-        "total_veiculos": total,
-        "marcas_diferentes": len(marcas),
-        "ano_mais_antigo": min(anos) if anos else None,
-        "ano_mais_novo": max(anos) if anos else None,
-        "preco_minimo": min(precos) if precos else None,
-        "preco_maximo": max(precos) if precos else None
-    }
