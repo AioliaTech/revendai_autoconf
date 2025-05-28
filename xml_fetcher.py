@@ -126,7 +126,7 @@ def fetch_and_convert_xml():
     "portas": v.get("DOORS"),
     "categoria": v.get("BODY"),
     "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
-    opcionais = [item.get("FEATURE") for item in v.get("FEATURES", []) if item.get("FEATURE")],
+    "opcionais": v.get("FEATURES", {}).get("FEATURE", []),
     "fotos": {
         "url_fotos": v.get("IMAGES", {}).get("IMAGE_URL", [])
     }
