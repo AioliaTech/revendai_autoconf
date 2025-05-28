@@ -42,7 +42,7 @@ def fetch_and_convert_xml():
     "portas": v.get("DOORS"),
     "categoria": v.get("BODY"),
     "preco": float(v.get("PRICE", "0").replace(",", "").strip())
-    }
+    
 }
                 parsed_vehicles.append(parsed)
             except Exception as e:
