@@ -109,27 +109,28 @@ def fetch_and_convert_xml():
 
         parsed_vehicles = []
 
-        for v in data_dict["estoque"]["veiculo"]:
+        for v in data_dict["ADS"]["AD"]:
             try:
                 parsed = {
-                    "id": v.get("idveiculo"),
-                    "marca": v.get("marca"),
-                    "modelo": v.get("modelo"),
-                    "categoria": inferir_categoria(v.get("modelo")),
-                    "ano": v.get("anomodelo"),
-                    "km": v.get("quilometragem"),
-                    "cor": v.get("cor"),
-                    "combustivel": v.get("combustivel"),
-                    "cambio": v.get("cambio"),
-                    "portas": v.get("numeroportas"),
-                    "preco": converter_preco_xml(v.get("preco")),
-                    "opcionais": v.get("opcionais").get("opcional") if v.get("opcionais") else None,
-                    "fotos": [
-                        img["url"].split("?")[0]
-                        for img in v.get("fotos", {}).get("foto", [])
-                        if isinstance(img, dict) and "url" in img
-                    ]
-                }
+    "id": v.get("ID"),
+    "versao": v.get("VERSION"),
+    "marca": v.get("MAKE"),
+    "modelo": v.get("MODEL"),
+    "ano": v.get("YEAR"),
+    "ano_fabricacao": v.get("FABRIC_YEAR"),
+    "km": v.get("MILEAGE"),
+    "cor": v.get("COLOR"),
+    "combustivel": v.get("FUEL"),
+    "cambio": v.get("GEAR"),
+    "motor": v.get("MOTOR"),
+    "portas": v.get("DOORS"),
+    "categoria": v.get("BODY"),
+    "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
+    opcionais = [item.get("FEATURE") for item in v.get("FEATURES", []) if item.get("FEATURE")],
+    "fotos": {
+        "url_fotos": v.get("IMAGES", {}).get("IMAGE_URL", [])
+    }
+}
                 parsed_vehicles.append(parsed)
             except Exception as e:
                 print(f"[ERRO ao converter veículo ID {v.get('idveiculo')}] {e}")
