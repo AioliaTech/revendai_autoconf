@@ -30,22 +30,17 @@ def filtrar_veiculos(vehicles, filtros, valormax=None):
         resultados = []
         for v in vehicles_filtrados:
             match = False
-            conteudo = v.get(chave, "")
-            if not conteudo:
-                continue
-            texto = normalizar(str(conteudo))
-
-            if termo_busca in texto or texto in termo_busca:
-                match = True
-            else:
-                score = fuzz.token_set_ratio(texto, termo_busca)
+            for campo in campos_textuais:
+                conteudo = v.get(campo, "")
+                if not conteudo:
+                    continue
+                texto = normalizar(str(conteudo))
+                score = fuzz.partial_ratio(termo_busca, texto)
                 if score >= 75:
                     match = True
-
-            if chave == "categoria":
-                if normalizar(v.get("categoria", "")) != termo_busca:
-                    match = False
-
+                    break
+            if chave == "categoria" and normalizar(v.get("categoria", "")) != termo_busca:
+                match = False
             if match:
                 resultados.append(v)
         vehicles_filtrados = resultados
@@ -105,18 +100,15 @@ def get_data(request: Request):
 
     alternativas = []
 
-    # 1. Remover ValorMax
     alternativa1 = filtrar_veiculos(vehicles, filtros)
     if alternativa1:
         alternativas = alternativa1
     else:
-        # 2. Remover marca
         filtros_sem_marca = {"modelo": filtros.get("modelo")}
         alternativa2 = filtrar_veiculos(vehicles, filtros_sem_marca, valormax)
         if alternativa2:
             alternativas = alternativa2
         else:
-            # 3. Buscar por categoria inferida
             modelo = filtros.get("modelo")
             categoria_inferida = None
             for v in vehicles:
@@ -131,13 +123,13 @@ def get_data(request: Request):
 
     if alternativas:
         alternativa = [
-    {
-        "modelo": v.get("modelo", ""),
-        "ano": v.get("ano", ""),
-        "preco": v.get("preco", "")
-    }
-    for v in alternativas
-]
+            {
+                "modelo": v.get("modelo", ""),
+                "ano": v.get("ano", ""),
+                "preco": v.get("preco", "")
+            }
+            for v in alternativas
+        ]
 
         return JSONResponse(content={
             "resultados": [],
