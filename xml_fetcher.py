@@ -37,7 +37,7 @@ def fetch_and_convert_xml():
     "km": v.get("MILEAGE"),
     "cor": v.get("COLOR"),
     "combustivel": v.get("FUEL"),
-    "cambio": v.get("GEAR"),
+    "cambio": v.get("gear"),
     "motor": v.get("MOTOR"),
     "portas": v.get("DOORS"),
     "categoria": v.get("BODY"),
