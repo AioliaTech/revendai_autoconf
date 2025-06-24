@@ -100,7 +100,7 @@ def get_price_for_sort(price_val):
     return converted if converted is not None else float('-inf')
 
 def filtrar_veiculos(vehicles, filtros, valormax=None):
-    campos_fuzzy = ["modelo", "versao", "categoria"]
+    campos_fuzzy = ["modelo", "versao", "categoria", "cor", "opcionais"]
     vehicles_processados = list(vehicles) 
 
     # Inicializa campos temporários para relevância em cada veículo
@@ -155,7 +155,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None):
                             score_ratio = fuzz.ratio(texto_normalizado_campo_veiculo, palavra_q_norm)
                             
                             achieved_score = max(score_partial, score_ratio)
-                            if achieved_score >= 75: # Limiar de similaridade
+                            if achieved_score >= 85: # Limiar de similaridade
                                 current_field_match_score = achieved_score
                         
                         if current_field_match_score > best_score_for_this_q_word_in_vehicle:
