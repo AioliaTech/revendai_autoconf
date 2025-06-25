@@ -24,26 +24,17 @@ def fetch_and_convert_xml():
 
         parsed_vehicles = []
 
-        for v in data_dict["ADS"].get("AD", []):
-            if not isinstance(v, dict):
-                continue
+        for v in data_dict["ADS"]["AD"]:
             try:
-                opcionais_raw = v.get("FEATURES", {})
-                imagens_raw = v.get("IMAGES", {})
+                features = v.get("FEATURES", {}).get("FEATURE", [])
+                if isinstance(features, str):
+                    features = [features]
+                elif isinstance(features, dict):
+                    features = [features.get("#text", "")]
 
-                opcionais = []
-                if isinstance(opcionais_raw, dict):
-                    itens = opcionais_raw.get("FEATURE", [])
-                    if isinstance(itens, dict):  # Caso tenha só um FEATURE
-                        itens = [itens]
-                    opcionais = [f.get("FEATURE") for f in itens if isinstance(f, dict)]
-
-                fotos = []
-                if isinstance(imagens_raw, dict):
-                    imagens = imagens_raw.get("IMAGE", [])
-                    if isinstance(imagens, dict):  # Caso tenha só uma imagem
-                        imagens = [imagens]
-                    fotos = [img.get("IMAGE_URL") for img in imagens if isinstance(img, dict)]
+                imagens = v.get("IMAGES", {}).get("IMAGE_URL", [])
+                if isinstance(imagens, str):
+                    imagens = [imagens]
 
                 parsed = {
                     "id": v.get("ID"),
@@ -60,15 +51,14 @@ def fetch_and_convert_xml():
                     "motor": v.get("MOTOR"),
                     "portas": v.get("DOORS"),
                     "categoria": v.get("BODY"),
-                    "preco": converter_preco_xml(v.get("PRICE")),
-                    "opcionais": opcionais,
+                    "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
+                    "opcionais": features if isinstance(features, list) else [],
                     "fotos": {
-                        "url_fotos": fotos
+                        "url_fotos": imagens if isinstance(imagens, list) else []
                     }
                 }
 
                 parsed_vehicles.append(parsed)
-
             except Exception as e:
                 print(f"[ERRO ao converter veículo ID {v.get('ID')}] {e}")
 
