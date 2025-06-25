@@ -1,10 +1,11 @@
 import requests, xmltodict, json, os
 from datetime import datetime
 
-XML_URL = os.getenv("XML_URL")
+XML_URL   = os.getenv("XML_URL")
 JSON_FILE = "data.json"
 
-def converter_preco_xml(valor_str):
+
+def converter_preco_xml(valor_str: str | None) -> float | None:
     if not valor_str:
         return None
     try:
@@ -13,80 +14,74 @@ def converter_preco_xml(valor_str):
     except ValueError:
         return None
 
+
+def _to_list(obj):
+    """Garante que o objeto seja sempre uma lista."""
+    if obj is None:
+        return []
+    return obj if isinstance(obj, list) else [obj]
+
+
 def fetch_and_convert_xml():
     try:
         if not XML_URL:
             raise ValueError("Variável XML_URL não definida")
 
-        response = requests.get(XML_URL)
-        data_dict = xmltodict.parse(response.content)
+        resp = requests.get(XML_URL, timeout=30)
+        resp.raise_for_status()
+        data_dict = xmltodict.parse(resp.content)
 
-        ads = data_dict.get("ADS", {}).get("AD", [])
-        if not isinstance(ads, list):
-            ads = [ads]
-
-        parsed_vehicles = []
-
-        for v in ads:
+        vehicles = []
+        for v in data_dict.get("ADS", {}).get("AD", []):
             try:
-                # Tratar fotos
-                imagens_raw = v.get("IMAGES", {}).get("IMAGE_URL", [])
-                if isinstance(imagens_raw, list):
-                    imagens = imagens_raw
-                elif isinstance(imagens_raw, str):
-                    imagens = [imagens_raw]
-                elif isinstance(imagens_raw, dict):
-                    imagens = [imagens_raw.get("#text", "") or imagens_raw]
-                else:
-                    imagens = []
+                # Fotos
+                fotos = []
+                for img in _to_list(v.get("IMAGES")):
+                    url = img.get("IMAGE_URL") if isinstance(img, dict) else img
+                    if url:
+                        fotos.append(url)
 
-                # Tratar opcionais
-                features_raw = v.get("FEATURES", {}).get("FEATURE", [])
-                if isinstance(features_raw, list):
-                    features = features_raw
-                elif isinstance(features_raw, str):
-                    features = [features_raw]
-                elif isinstance(features_raw, dict):
-                    features = [features_raw.get("#text", "") or features_raw]
-                else:
-                    features = []
+                # Opcionais
+                opcionais = []
+                for feat in _to_list(v.get("FEATURES")):
+                    val = feat.get("FEATURE") if isinstance(feat, dict) else feat
+                    if val:
+                        opcionais.append(val)
 
-                parsed = {
-                    "id": v.get("ID"),
-                    "tipo": v.get("CATEGORY"),
-                    "versao": v.get("VERSION"),
-                    "marca": v.get("MAKE"),
-                    "modelo": v.get("MODEL"),
-                    "ano": v.get("YEAR"),
-                    "ano_fabricacao": v.get("FABRIC_YEAR"),
-                    "km": v.get("MILEAGE"),
-                    "cor": v.get("COLOR"),
-                    "combustivel": v.get("FUEL"),
-                    "cambio": v.get("gear"),
-                    "motor": v.get("MOTOR"),
-                    "portas": v.get("DOORS"),
-                    "categoria": v.get("BODY"),
-                    "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
-                    "opcionais": features,
-                    "fotos": {
-                        "url_fotos": imagens
+                vehicles.append(
+                    {
+                        "id": v.get("ID"),
+                        "tipo": v.get("CATEGORY"),
+                        "versao": v.get("VERSION"),
+                        "marca": v.get("MAKE"),
+                        "modelo": v.get("MODEL"),
+                        "ano": v.get("YEAR"),
+                        "ano_fabricacao": v.get("FABRIC_YEAR"),
+                        "km": v.get("MILEAGE"),
+                        "cor": v.get("COLOR"),
+                        "combustivel": v.get("FUEL"),
+                        "cambio": v.get("gear"),
+                        "motor": v.get("MOTOR"),
+                        "portas": v.get("DOORS"),
+                        "categoria": v.get("BODY"),
+                        "preco": converter_preco_xml(v.get("PRICE")),
+                        "opcionais": opcionais,
+                        "fotos": {"url_fotos": fotos},
                     }
-                }
-
-                parsed_vehicles.append(parsed)
+                )
             except Exception as e:
-                print(f"[ERRO ao converter veículo ID {v.get('ID')}] {e}")
+                print(f"[ERRO] veículo ID {v.get('ID')}: {e}")
 
-        data_dict = {
-            "veiculos": parsed_vehicles,
+        resultado = {
+            "veiculos": vehicles,
             "_updated_at": datetime.now().isoformat()
         }
 
         with open(JSON_FILE, "w", encoding="utf-8") as f:
-            json.dump(data_dict, f, ensure_ascii=False, indent=2)
+            json.dump(resultado, f, ensure_ascii=False, indent=2)
 
         print("[OK] Dados atualizados com sucesso.")
-        return data_dict
+        return resultado
 
     except Exception as e:
         print(f"[ERRO] Falha ao converter XML: {e}")
