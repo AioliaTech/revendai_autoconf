@@ -1,6 +1,5 @@
 import requests, xmltodict, json, os
 from datetime import datetime
-from unidecode import unidecode
 
 XML_URL = os.getenv("XML_URL")
 JSON_FILE = "data.json"
@@ -22,19 +21,35 @@ def fetch_and_convert_xml():
         response = requests.get(XML_URL)
         data_dict = xmltodict.parse(response.content)
 
+        ads = data_dict.get("ADS", {}).get("AD", [])
+        if not isinstance(ads, list):
+            ads = [ads]
+
         parsed_vehicles = []
 
-        for v in data_dict["ADS"]["AD"]:
+        for v in ads:
             try:
-                features = v.get("FEATURES", {}).get("FEATURE", [])
-                if isinstance(features, str):
-                    features = [features]
-                elif isinstance(features, dict):
-                    features = [features.get("#text", "")]
+                # Tratar fotos
+                imagens_raw = v.get("IMAGES", {}).get("IMAGE_URL", [])
+                if isinstance(imagens_raw, list):
+                    imagens = imagens_raw
+                elif isinstance(imagens_raw, str):
+                    imagens = [imagens_raw]
+                elif isinstance(imagens_raw, dict):
+                    imagens = [imagens_raw.get("#text", "") or imagens_raw]
+                else:
+                    imagens = []
 
-                imagens = v.get("IMAGES", {}).get("IMAGE_URL", [])
-                if isinstance(imagens, str):
-                    imagens = [imagens]
+                # Tratar opcionais
+                features_raw = v.get("FEATURES", {}).get("FEATURE", [])
+                if isinstance(features_raw, list):
+                    features = features_raw
+                elif isinstance(features_raw, str):
+                    features = [features_raw]
+                elif isinstance(features_raw, dict):
+                    features = [features_raw.get("#text", "") or features_raw]
+                else:
+                    features = []
 
                 parsed = {
                     "id": v.get("ID"),
@@ -52,9 +67,9 @@ def fetch_and_convert_xml():
                     "portas": v.get("DOORS"),
                     "categoria": v.get("BODY"),
                     "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
-                    "opcionais": features if isinstance(features, list) else [],
+                    "opcionais": features,
                     "fotos": {
-                        "url_fotos": imagens if isinstance(imagens, list) else []
+                        "url_fotos": imagens
                     }
                 }
 
