@@ -64,7 +64,7 @@ def fetch_and_convert_xml():
                         "motor": v.get("MOTOR"),
                         "portas": v.get("DOORS"),
                         "categoria": v.get("BODY"),
-                        "preco": converter_preco_xml(v.get("PRICE")),
+                        "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
                         "opcionais": opcionais,
                         "fotos": {"url_fotos": fotos},
                     }
