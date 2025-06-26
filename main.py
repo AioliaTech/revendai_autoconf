@@ -332,7 +332,7 @@ def get_data(request: Request):
         if sugestao_acima:
             alternativas_formatadas = [
             {"marca": v.get("marca", ""), "modelo": v.get("modelo", ""), "ano": v.get("ano", ""), "cor": v.get("cor", ""), "preco": v.get("preco", "")}
-            for v in alternativas[:10] 
+            for v in sugestao_acima[:5]
         ]
             return JSONResponse(content={
                 "resultados": [],
