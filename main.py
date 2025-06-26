@@ -100,7 +100,7 @@ def get_price_for_sort(price_val):
     return converted if converted is not None else float('-inf')
 
 def filtrar_veiculos(vehicles, filtros, valormax=None):
-    campos_fuzzy = ["modelo", "versao", "categoria", "cor", "opcionais"]
+    campos_fuzzy = ["modelo", "titulo", "cor", "opcionais"]
     vehicles_processados = list(vehicles) 
 
     # Inicializa campos temporários para relevância em cada veículo
@@ -209,7 +209,7 @@ def filtrar_veiculos(vehicles, filtros, valormax=None):
     if valormax:
         try:
             teto = float(valormax)
-            max_price_limit = teto * 1.2
+            max_price_limit = teto * 1.2 
             
             vehicles_filtrados_preco = []
             for v_dict in vehicles_processados:
@@ -258,10 +258,19 @@ def get_data(request: Request):
     valormax = query_params.pop("ValorMax", None)
 
     filtros_originais = {
-        "modelo": query_params.get("modelo"),
-        "marca": query_params.get("marca"),
-        "categoria": query_params.get("categoria")
-    }
+    "id": query_params.get("id"),
+    "tipo": query_params.get("tipo"),
+    "modelo": query_params.get("modelo"),
+    "marca": query_params.get("marca"),
+    "cilindrada": query_params.get("cilindrada"),
+    "categoria": query_params.get("categoria"),
+    "motor": query_params.get("motor"),
+    "opcionais": query_params.get("opcionais"),
+    "cor": query_params.get("cor"),
+    "combustivel": query_params.get("combustivel"),
+    "ano": query_params.get("ano"),
+    "km": query_params.get("km")
+}
     filtros_ativos = {k: v for k, v in filtros_originais.items() if v}
 
     resultado = filtrar_veiculos(vehicles, filtros_ativos, valormax)
@@ -305,7 +314,7 @@ def get_data(request: Request):
     
     if alternativas:
         alternativas_formatadas = [
-            {"marca": v.get("marca", ""), "modelo": v.get("modelo", ""), "ano": v.get("ano", ""),"preco": v.get("preco", "")}
+            {"marca": v.get("marca", ""), "modelo": v.get("modelo", ""), "ano": v.get("ano", ""), "cor": v.get("cor", ""), "preco": v.get("preco", "")}
             for v in alternativas[:10] 
         ]
         return JSONResponse(content={
