@@ -1,5 +1,6 @@
 import requests, xmltodict, json, os
 from datetime import datetime
+from unidecode import unidecode
 
 XML_URL   = os.getenv("XML_URL")
 JSON_FILE = "data.json"
