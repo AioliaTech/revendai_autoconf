@@ -21,9 +21,9 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "modelo",
+    "categoria",
     "marca",
-    "categoria"         # Mais importante (nunca remove sozinho)
+    "modelo"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
@@ -53,7 +53,7 @@ for model in suv_models:
     MAPEAMENTO_CATEGORIAS[model] = "suv"
 
 # Caminhonete
-caminhonete_models = ["hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "gladiator", "maverick", "colorado", "dakota", "montana (nova)", "f-250", "f250", "courier (pickup)", "hoggar", "ram 1500"]
+caminhonete_models = ["hilux", "ranger", "s10", "l200", "triton", "toro", "frontier", "amarok", "gladiator", "maverick", "colorado", "dakota", "montana (nova)", "f-250", "f250", "courier (pickup)", "hoggar", "ram 1500", "rampage"]
 for model in caminhonete_models:
     MAPEAMENTO_CATEGORIAS[model] = "caminhonete"
 
@@ -104,7 +104,7 @@ class VehicleSearchEngine:
     """Engine de busca de veículos com sistema de fallback inteligente"""
     
     def __init__(self):
-        self.fuzzy_fields = ["modelo", "cor", "opcionais"]
+        self.fuzzy_fields = ["modelo", "titulo", "cor", "opcionais"]
         self.exact_fields = ["tipo", "marca", "categoria", "cambio", "combustivel"]
         
     def normalize_text(self, text: str) -> str:
@@ -228,12 +228,24 @@ class VehicleSearchEngine:
             if len(normalized_word) < 2:
                 continue
                 
-            # Match exato
+            # Match exato (substring)
             if normalized_word in normalized_content:
                 return True, f"exact_match: {normalized_word}"
-                
+            
+            # Match no início da palavra (para casos como "ram" em "rampage")
+            content_words = normalized_content.split()
+            for content_word in content_words:
+                if content_word.startswith(normalized_word):
+                    return True, f"starts_with_match: {normalized_word}"
+                    
             # Match fuzzy para palavras com 3+ caracteres
             if len(normalized_word) >= 3:
+                # Verifica se a palavra da query está contida em alguma palavra do conteúdo
+                for content_word in content_words:
+                    if normalized_word in content_word:
+                        return True, f"substring_match: {normalized_word} in {content_word}"
+                
+                # Fuzzy matching tradicional
                 partial_score = fuzz.partial_ratio(normalized_content, normalized_word)
                 ratio_score = fuzz.ratio(normalized_content, normalized_word)
                 max_score = max(partial_score, ratio_score)
