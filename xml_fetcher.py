@@ -146,7 +146,7 @@ def fetch_and_convert_xml():
                     parsed = {
                         "id": v.get("ID"),
                         "tipo": v.get("CATEGORY"),
-                        "titulo": v.get("TITLE"),
+                        "versao": v.get("VERSION"),
                         "marca": v.get("MAKE"),
                         "modelo": v.get("MODEL"),
                         "ano": v.get("YEAR"),
