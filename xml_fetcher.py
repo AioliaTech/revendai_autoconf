@@ -159,7 +159,7 @@ def fetch_and_convert_xml():
                         "portas": v.get("DOORS"),
                         "categoria": v.get("BODY_TYPE"),
                         "cilindrada": inferir_cilindrada(v.get("MODEL")),
-                        "preco": float(str(v.get("PRICE", "0")).replace(",", "").strip() or 0),
+                        "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
                         "opcionais": v.get("ACCESSORIES"),
                         "fotos": extrair_fotos(v)
                     }
