@@ -1,8 +1,7 @@
-import requests, xmltodict, json, os
+import requests, xmltodict, json, os, re
 from datetime import datetime
 from unidecode import unidecode
 
-XML_URL   = os.getenv("XML_URL")
 JSON_FILE = "data.json"
 
 MAPEAMENTO_CILINDRADAS = {
@@ -38,14 +37,7 @@ MAPEAMENTO_CILINDRADAS = {
     "cg 125": 125
 }
 
-def converter_preco_xml(valor_str: str | None) -> float | None:
-    if not valor_str:
-        return None
-    try:
-        valor = str(valor_str).replace("R$", "").replace(".", "").replace(",", ".").strip()
-        return float(valor)
-    except ValueError:
-        return None
+# =================== UTILS =======================
 
 def normalizar_modelo(modelo):
     if not modelo:
@@ -53,6 +45,16 @@ def normalizar_modelo(modelo):
     modelo_norm = unidecode(modelo).lower()
     modelo_norm = re.sub(r'[^a-z0-9]', '', modelo_norm)
     return modelo_norm
+
+def inferir_categoria(modelo):
+    if not modelo:
+        return None
+    modelo_norm = normalizar_modelo(modelo)
+    for mapeado, categoria in MAPEAMENTO_CATEGORIAS.items():
+        mapeado_norm = normalizar_modelo(mapeado)
+        if mapeado_norm in modelo_norm:
+            return categoria
+    return None
 
 def inferir_cilindrada(modelo):
     if not modelo:
@@ -64,44 +66,87 @@ def inferir_cilindrada(modelo):
             return cilindrada
     return None
 
-def _to_list(obj):
-    """Garante que o objeto seja sempre uma lista."""
-    if obj is None:
-        return []
-    return obj if isinstance(obj, list) else [obj]
+def converter_preco_xml(valor_str):
+    if not valor_str:
+        return None
+    try:
+        valor = str(valor_str).replace("R$", "").replace(".", "").replace(",", ".").strip()
+        return float(valor)
+    except ValueError:
+        return None
 
+# Para cada estrutura de XML: estoque/veiculo OU ADS/AD
+def extrair_veiculos(data_dict):
+    # Compatibiliza para qualquer estrutura
+    veic = None
+    if "estoque" in data_dict and "veiculo" in data_dict["estoque"]:
+        veic = data_dict["estoque"]["veiculo"]
+    elif "ADS" in data_dict and "AD" in data_dict["ADS"]:
+        veic = data_dict["ADS"]["AD"]
+    else:
+        return []
+
+    # Garante lista
+    if isinstance(veic, dict):
+        veic = [veic]
+    return veic
+
+def extrair_fotos(v):
+    # Caso estoque/veiculo (motos Dominato)
+    if "fotos" in v and v["fotos"]:
+        fotos_foto = v["fotos"].get("foto")
+        if not fotos_foto:
+            return []
+        if isinstance(fotos_foto, dict):
+            fotos_foto = [fotos_foto]
+        return [
+            img["url"].split("?")[0]
+            for img in fotos_foto
+            if isinstance(img, dict) and "url" in img
+        ]
+    # Caso ADS/AD (exemplo XML com IMAGE_URL)
+    if "IMAGES" in v:
+        image_url = v.get("IMAGES", {}).get("IMAGE_URL")
+        if not image_url:
+            return []
+        if isinstance(image_url, list):
+            return image_url
+        return [image_url]
+    return []
+
+# =================== FETCHER MULTI-XML =======================
+
+def get_xml_urls():
+    urls = []
+    for var, val in os.environ.items():
+        if var.startswith("XML_URL") and val:
+            urls.append(val)
+    if "XML_URL" in os.environ and os.environ["XML_URL"] not in urls:
+        urls.append(os.environ["XML_URL"])
+    return urls
 
 def fetch_and_convert_xml():
     try:
-        if not XML_URL:
-            raise ValueError("Variável XML_URL não definida")
+        XML_URLS = get_xml_urls()
+        if not XML_URLS:
+            raise ValueError("Nenhuma variável XML_URL definida")
 
-        resp = requests.get(XML_URL, timeout=30)
-        resp.raise_for_status()
-        data_dict = xmltodict.parse(resp.content)
+        parsed_vehicles = []
 
-        vehicles = []
-        for v in data_dict.get("ADS", {}).get("AD", []):
-            try:
-                # Fotos
-                fotos = []
-                for img in _to_list(v.get("IMAGES")):
-                    url = img.get("IMAGE_URL") if isinstance(img, dict) else img
-                    if url:
-                        fotos.append(url)
-
-                # Opcionais
-                opcionais = []
-                for feat in _to_list(v.get("FEATURES")):
-                    val = feat.get("FEATURE") if isinstance(feat, dict) else feat
-                    if val:
-                        opcionais.append(val)
-
-                vehicles.append(
-                    {
+        for XML_URL in XML_URLS:
+            response = requests.get(XML_URL)
+            data_dict = xmltodict.parse(response.content)
+            # suporta diferentes formatos (ADS/AD padrão)
+            ads = data_dict.get("ADS", {}).get("AD", [])
+            # garante que seja lista
+            if isinstance(ads, dict):
+                ads = [ads]
+            for v in ads:
+                try:
+                    parsed = {
                         "id": v.get("ID"),
                         "tipo": v.get("CATEGORY"),
-                        "versao": v.get("VERSION"),
+                        "titulo": v.get("TITLE"),
                         "marca": v.get("MAKE"),
                         "modelo": v.get("MODEL"),
                         "ano": v.get("YEAR"),
@@ -109,29 +154,29 @@ def fetch_and_convert_xml():
                         "km": v.get("MILEAGE"),
                         "cor": v.get("COLOR"),
                         "combustivel": v.get("FUEL"),
-                        "cambio": v.get("gear"),
+                        "cambio": v.get("GEAR"),
                         "motor": v.get("MOTOR"),
                         "portas": v.get("DOORS"),
-                        "categoria": v.get("BODY"),
+                        "categoria": v.get("BODY_TYPE"),
                         "cilindrada": inferir_cilindrada(v.get("MODEL")),
-                        "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
-                        "opcionais": opcionais,
-                        "fotos": {"url_fotos": fotos},
+                        "preco": float(str(v.get("PRICE", "0")).replace(",", "").strip() or 0),
+                        "opcionais": v.get("ACCESSORIES"),
+                        "fotos": extrair_fotos(v)
                     }
-                )
-            except Exception as e:
-                print(f"[ERRO] veículo ID {v.get('ID')}: {e}")
+                    parsed_vehicles.append(parsed)
+                except Exception as e:
+                    print(f"[ERRO ao converter veículo ID {v.get('ID')}] {e}")
 
-        resultado = {
-            "veiculos": vehicles,
+        data_dict = {
+            "veiculos": parsed_vehicles,
             "_updated_at": datetime.now().isoformat()
         }
 
         with open(JSON_FILE, "w", encoding="utf-8") as f:
-            json.dump(resultado, f, ensure_ascii=False, indent=2)
+            json.dump(data_dict, f, ensure_ascii=False, indent=2)
 
         print("[OK] Dados atualizados com sucesso.")
-        return resultado
+        return data_dict
 
     except Exception as e:
         print(f"[ERRO] Falha ao converter XML: {e}")
