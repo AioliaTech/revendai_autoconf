@@ -21,9 +21,9 @@ FALLBACK_PRIORITY = [
     "combustivel",
     "opcionais",
     "cambio",
-    "categoria",
+    "modelo",
     "marca",
-    "modelo"         # Mais importante (nunca remove sozinho)
+    "categoria"         # Mais importante (nunca remove sozinho)
 ]
 
 # Prioridade para parâmetros de range
