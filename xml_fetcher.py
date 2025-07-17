@@ -37,14 +37,6 @@ MAPEAMENTO_CILINDRADAS = {
     "cg 125": 125
 }
 
-# Adicionando o mapeamento de categorias que estava faltando
-MAPEAMENTO_CATEGORIAS = {
-    "carros": "carro",
-    "motos": "moto",
-    "caminhoes": "caminhao",
-    "utilitarios": "utilitario"
-}
-
 # =================== UTILS =======================
 
 def normalizar_modelo(modelo):
@@ -84,53 +76,36 @@ def converter_preco_xml(valor_str):
         return None
 
 def extrair_fotos(v):
-    fotos = []
+    # Caso estoque/veiculo (motos Dominato)
+    if "fotos" in v and v["fotos"]:
+        fotos_foto = v["fotos"].get("foto")
+        if not fotos_foto:
+            return []
+        if isinstance(fotos_foto, dict):
+            fotos_foto = [fotos_foto]
+        return [
+            img["url"].split("?")[0]
+            for img in fotos_foto
+            if isinstance(img, dict) and "url" in img
+        ]
     
-    # Verifica se existe o campo IMAGES
+    # Caso ADS/AD (exemplo XML com IMAGE_URL)
     if "IMAGES" in v:
         images = v["IMAGES"]
+        fotos = []
         
         # Se IMAGES for uma lista, itera sobre ela
         if isinstance(images, list):
             for img in images:
                 if isinstance(img, dict) and "IMAGE_URL" in img:
                     fotos.append(img["IMAGE_URL"])
-        
         # Se IMAGES for um dicionário único, pega a URL
         elif isinstance(images, dict) and "IMAGE_URL" in images:
             fotos.append(images["IMAGE_URL"])
-    
-    # Caso antigo: fotos/foto (motos Dominato)
-    elif "fotos" in v and v["fotos"]:
-        fotos_foto = v["fotos"].get("foto")
-        if fotos_foto:
-            if isinstance(fotos_foto, dict):
-                fotos_foto = [fotos_foto]
-            fotos = [
-                img["url"].split("?")[0]
-                for img in fotos_foto
-                if isinstance(img, dict) and "url" in img
-            ]
-    
-    return fotos
-
-def extrair_features(v):
-    features = []
-    
-    if "FEATURES" in v:
-        features_data = v["FEATURES"]
         
-        # Se FEATURES for uma lista, itera sobre ela
-        if isinstance(features_data, list):
-            for feature in features_data:
-                if isinstance(feature, dict) and "FEATURE" in feature:
-                    features.append(feature["FEATURE"])
-        
-        # Se FEATURES for um dicionário único, pega a feature
-        elif isinstance(features_data, dict) and "FEATURE" in features_data:
-            features.append(features_data["FEATURE"])
+        return fotos
     
-    return features
+    return []
 
 def safe_float_conversion(value):
     """Converte valor para float de forma segura"""
@@ -194,29 +169,19 @@ def fetch_and_convert_xml():
                         "versao": v.get("VERSION"),
                         "marca": v.get("MAKE"),
                         "modelo": v.get("MODEL"),
-                        "ano": safe_int_conversion(v.get("YEAR")),
-                        "ano_fabricacao": safe_int_conversion(v.get("FABRIC_YEAR")),
-                        "km": safe_int_conversion(v.get("MILEAGE")),
+                        "ano": v.get("YEAR"),
+                        "ano_fabricacao": v.get("FABRIC_YEAR"),
+                        "km": v.get("MILEAGE"),
                         "cor": v.get("COLOR"),
                         "combustivel": v.get("FUEL"),
-                        "cambio": v.get("gear"),  # Note que no XML é 'gear' minúsculo
+                        "cambio": v.get("GEAR"),
                         "motor": v.get("MOTOR"),
-                        "portas": safe_int_conversion(v.get("DOORS")),
-                        "categoria": v.get("BODY") or v.get("BODY_TYPE"),  # Pode ser BODY ou BODY_TYPE
+                        "portas": v.get("DOORS"),
+                        "categoria": v.get("BODY_TYPE"),
                         "cilindrada": inferir_cilindrada(v.get("MODEL")),
-                        "preco": safe_float_conversion(v.get("PRICE")),
-                        "opcionais": extrair_features(v),
-                        "fotos": extrair_fotos(v),
-                        "cidade": v.get("LOCATION_CITY"),
-                        "estado": v.get("LOCATION_STATE"),
-                        "vendedor": v.get("SELLER"),
-                        "telefone": v.get("PHONE"),
-                        "placa": v.get("PLATE"),
-                        "condicao": v.get("CONDITION"),
-                        "descricao": v.get("DESCRIPTION"),
-                        "url": v.get("URL"),
-                        "data_publicacao": v.get("PUBLISHED"),
-                        "ultima_atualizacao": v.get("LAST_UPDATED")
+                        "preco": float(v.get("PRICE", "0").replace(",", "").strip()) if v.get("PRICE") else 0,
+                        "opcionais": v.get("ACCESSORIES"),
+                        "fotos": extrair_fotos(v)
                     }
                     parsed_vehicles.append(parsed)
                     
@@ -226,7 +191,6 @@ def fetch_and_convert_xml():
 
         data_dict = {
             "veiculos": parsed_vehicles,
-            "total": len(parsed_vehicles),
             "_updated_at": datetime.now().isoformat()
         }
 
@@ -238,7 +202,7 @@ def fetch_and_convert_xml():
 
     except Exception as e:
         print(f"[ERRO] Falha ao converter XML: {e}")
-        return {"veiculos": [], "total": 0, "_updated_at": datetime.now().isoformat()}
+        return {}
 
 # Função para testar o código
 def test_fetch():
@@ -248,4 +212,4 @@ def test_fetch():
 
 if __name__ == "__main__":
     result = fetch_and_convert_xml()
-    print(f"Processamento concluído. {result.get('total', 0)} veículos processados.")
+    print(f"Processamento concluído. {len(result.get('veiculos', []))} veículos processados.")
