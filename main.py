@@ -249,7 +249,7 @@ class VehicleSearchEngine:
                 ratio_score = fuzz.ratio(normalized_content, normalized_word)
                 max_score = max(partial_score, ratio_score)
                 
-                if max_score >= 80:
+                if max_score >= 87:
                     return True, f"fuzzy_match: {max_score}"
         
         return False, "no_match"
