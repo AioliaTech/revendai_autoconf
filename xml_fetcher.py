@@ -37,6 +37,14 @@ MAPEAMENTO_CILINDRADAS = {
     "cg 125": 125
 }
 
+# Adicionando o mapeamento de categorias que estava faltando
+MAPEAMENTO_CATEGORIAS = {
+    "carros": "carro",
+    "motos": "moto",
+    "caminhoes": "caminhao",
+    "utilitarios": "utilitario"
+}
+
 # =================== UTILS =======================
 
 def normalizar_modelo(modelo):
@@ -75,44 +83,73 @@ def converter_preco_xml(valor_str):
     except ValueError:
         return None
 
-# Para cada estrutura de XML: estoque/veiculo OU ADS/AD
-def extrair_veiculos(data_dict):
-    # Compatibiliza para qualquer estrutura
-    veic = None
-    if "estoque" in data_dict and "veiculo" in data_dict["estoque"]:
-        veic = data_dict["estoque"]["veiculo"]
-    elif "ADS" in data_dict and "AD" in data_dict["ADS"]:
-        veic = data_dict["ADS"]["AD"]
-    else:
-        return []
-
-    # Garante lista
-    if isinstance(veic, dict):
-        veic = [veic]
-    return veic
-
 def extrair_fotos(v):
-    # Caso estoque/veiculo (motos Dominato)
-    if "fotos" in v and v["fotos"]:
-        fotos_foto = v["fotos"].get("foto")
-        if not fotos_foto:
-            return []
-        if isinstance(fotos_foto, dict):
-            fotos_foto = [fotos_foto]
-        return [
-            img["url"].split("?")[0]
-            for img in fotos_foto
-            if isinstance(img, dict) and "url" in img
-        ]
-    # Caso ADS/AD (exemplo XML com IMAGE_URL)
+    fotos = []
+    
+    # Verifica se existe o campo IMAGES
     if "IMAGES" in v:
-        image_url = v.get("IMAGES", {}).get("IMAGE_URL")
-        if not image_url:
-            return []
-        if isinstance(image_url, list):
-            return image_url
-        return [image_url]
-    return []
+        images = v["IMAGES"]
+        
+        # Se IMAGES for uma lista, itera sobre ela
+        if isinstance(images, list):
+            for img in images:
+                if isinstance(img, dict) and "IMAGE_URL" in img:
+                    fotos.append(img["IMAGE_URL"])
+        
+        # Se IMAGES for um dicionário único, pega a URL
+        elif isinstance(images, dict) and "IMAGE_URL" in images:
+            fotos.append(images["IMAGE_URL"])
+    
+    # Caso antigo: fotos/foto (motos Dominato)
+    elif "fotos" in v and v["fotos"]:
+        fotos_foto = v["fotos"].get("foto")
+        if fotos_foto:
+            if isinstance(fotos_foto, dict):
+                fotos_foto = [fotos_foto]
+            fotos = [
+                img["url"].split("?")[0]
+                for img in fotos_foto
+                if isinstance(img, dict) and "url" in img
+            ]
+    
+    return fotos
+
+def extrair_features(v):
+    features = []
+    
+    if "FEATURES" in v:
+        features_data = v["FEATURES"]
+        
+        # Se FEATURES for uma lista, itera sobre ela
+        if isinstance(features_data, list):
+            for feature in features_data:
+                if isinstance(feature, dict) and "FEATURE" in feature:
+                    features.append(feature["FEATURE"])
+        
+        # Se FEATURES for um dicionário único, pega a feature
+        elif isinstance(features_data, dict) and "FEATURE" in features_data:
+            features.append(features_data["FEATURE"])
+    
+    return features
+
+def safe_float_conversion(value):
+    """Converte valor para float de forma segura"""
+    if not value:
+        return None
+    try:
+        # Remove vírgulas e converte para float
+        return float(str(value).replace(",", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+def safe_int_conversion(value):
+    """Converte valor para int de forma segura"""
+    if not value:
+        return None
+    try:
+        return int(str(value).replace(",", "").strip())
+    except (ValueError, TypeError):
+        return None
 
 # =================== FETCHER MULTI-XML =======================
 
@@ -134,13 +171,21 @@ def fetch_and_convert_xml():
         parsed_vehicles = []
 
         for XML_URL in XML_URLS:
+            print(f"[INFO] Processando URL: {XML_URL}")
             response = requests.get(XML_URL)
+            response.raise_for_status()  # Levanta exceção para status HTTP de erro
+            
             data_dict = xmltodict.parse(response.content)
-            # suporta diferentes formatos (ADS/AD padrão)
+            
+            # Suporta diferentes formatos (ADS/AD padrão)
             ads = data_dict.get("ADS", {}).get("AD", [])
-            # garante que seja lista
+            
+            # Garante que seja lista
             if isinstance(ads, dict):
                 ads = [ads]
+            
+            print(f"[INFO] Encontrados {len(ads)} anúncios")
+            
             for v in ads:
                 try:
                     parsed = {
@@ -149,35 +194,58 @@ def fetch_and_convert_xml():
                         "versao": v.get("VERSION"),
                         "marca": v.get("MAKE"),
                         "modelo": v.get("MODEL"),
-                        "ano": v.get("YEAR"),
-                        "ano_fabricacao": v.get("FABRIC_YEAR"),
-                        "km": v.get("MILEAGE"),
+                        "ano": safe_int_conversion(v.get("YEAR")),
+                        "ano_fabricacao": safe_int_conversion(v.get("FABRIC_YEAR")),
+                        "km": safe_int_conversion(v.get("MILEAGE")),
                         "cor": v.get("COLOR"),
                         "combustivel": v.get("FUEL"),
-                        "cambio": v.get("GEAR"),
+                        "cambio": v.get("gear"),  # Note que no XML é 'gear' minúsculo
                         "motor": v.get("MOTOR"),
-                        "portas": v.get("DOORS"),
-                        "categoria": v.get("BODY_TYPE"),
+                        "portas": safe_int_conversion(v.get("DOORS")),
+                        "categoria": v.get("BODY") or v.get("BODY_TYPE"),  # Pode ser BODY ou BODY_TYPE
                         "cilindrada": inferir_cilindrada(v.get("MODEL")),
-                        "preco": float(v.get("PRICE", "0").replace(",", "").strip()),
-                        "opcionais": v.get("ACCESSORIES"),
-                        "fotos": extrair_fotos(v)
+                        "preco": safe_float_conversion(v.get("PRICE")),
+                        "opcionais": extrair_features(v),
+                        "fotos": extrair_fotos(v),
+                        "cidade": v.get("LOCATION_CITY"),
+                        "estado": v.get("LOCATION_STATE"),
+                        "vendedor": v.get("SELLER"),
+                        "telefone": v.get("PHONE"),
+                        "placa": v.get("PLATE"),
+                        "condicao": v.get("CONDITION"),
+                        "descricao": v.get("DESCRIPTION"),
+                        "url": v.get("URL"),
+                        "data_publicacao": v.get("PUBLISHED"),
+                        "ultima_atualizacao": v.get("LAST_UPDATED")
                     }
                     parsed_vehicles.append(parsed)
+                    
                 except Exception as e:
-                    print(f"[ERRO ao converter veículo ID {v.get('ID')}] {e}")
+                    print(f"[ERRO ao converter veículo ID {v.get('ID', 'N/A')}] {e}")
+                    continue
 
         data_dict = {
             "veiculos": parsed_vehicles,
+            "total": len(parsed_vehicles),
             "_updated_at": datetime.now().isoformat()
         }
 
         with open(JSON_FILE, "w", encoding="utf-8") as f:
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
 
-        print("[OK] Dados atualizados com sucesso.")
+        print(f"[OK] Dados atualizados com sucesso. Total de veículos: {len(parsed_vehicles)}")
         return data_dict
 
     except Exception as e:
         print(f"[ERRO] Falha ao converter XML: {e}")
-        return {}
+        return {"veiculos": [], "total": 0, "_updated_at": datetime.now().isoformat()}
+
+# Função para testar o código
+def test_fetch():
+    # Para testar, você pode definir uma URL de teste
+    os.environ["XML_URL"] = "https://exemplo.com/xml"  # Substitua pela URL real
+    return fetch_and_convert_xml()
+
+if __name__ == "__main__":
+    result = fetch_and_convert_xml()
+    print(f"Processamento concluído. {result.get('total', 0)} veículos processados.")
