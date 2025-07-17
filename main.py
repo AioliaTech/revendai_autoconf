@@ -266,8 +266,8 @@ class VehicleSearchEngine:
             if not filter_value or not filtered_vehicles:
                 continue
             
-            if filter_key in self.fuzzy_fields:
-                # Filtro fuzzy
+            if filter_key == "modelo":
+                # Filtro de modelo: busca em 'modelo' e 'titulo' com fuzzy
                 multi_values = self.split_multi_value(filter_value)
                 all_words = []
                 for val in multi_values:
@@ -275,14 +275,36 @@ class VehicleSearchEngine:
                 
                 filtered_vehicles = [
                     v for v in filtered_vehicles
-                    if any(
-                        self.fuzzy_match(all_words, str(v.get(field, "")))[0]
-                        for field in self.fuzzy_fields
-                    )
+                    if (self.fuzzy_match(all_words, str(v.get("modelo", "")))[0] or 
+                        self.fuzzy_match(all_words, str(v.get("titulo", "")))[0])
+                ]
+                
+            elif filter_key == "cor":
+                # Filtro de cor: busca apenas no campo 'cor' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("cor", "")))[0]
+                ]
+                
+            elif filter_key == "opcionais":
+                # Filtro de opcionais: busca apenas no campo 'opcionais' com fuzzy
+                multi_values = self.split_multi_value(filter_value)
+                all_words = []
+                for val in multi_values:
+                    all_words.extend(val.split())
+                
+                filtered_vehicles = [
+                    v for v in filtered_vehicles
+                    if self.fuzzy_match(all_words, str(v.get("opcionais", "")))[0]
                 ]
                 
             elif filter_key in self.exact_fields:
-                # Filtro exato
+                # Filtros exatos (tipo, marca, categoria, cambio, combustivel)
                 normalized_values = [
                     self.normalize_text(v) for v in self.split_multi_value(filter_value)
                 ]
