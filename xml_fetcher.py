@@ -187,7 +187,11 @@ def fetch_and_convert_xml():
                         "categoria": v.get("BODY"),
                         "cilindrada": inferir_cilindrada(v.get("VERSION")),
                         "preco": float(v.get("PRICE", "0").replace(",", "").strip()) if v.get("PRICE") else 0,
-                        "opcionais": v.get("ACCESSORIES"),
+                        "opcionais": [
+                            feat.get("FEATURE") if isinstance(feat, dict) else feat 
+                            for feat in (v.get("FEATURES") or [])
+                            if (feat.get("FEATURE") if isinstance(feat, dict) else feat)
+                        ],
                         "fotos": extrair_fotos(v)
                     }
                     parsed_vehicles.append(parsed)
