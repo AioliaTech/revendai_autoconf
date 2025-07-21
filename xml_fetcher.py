@@ -177,7 +177,7 @@ def fetch_and_convert_xml():
                         "cambio": v.get("GEAR"),
                         "motor": v.get("MOTOR"),
                         "portas": v.get("DOORS"),
-                        "categoria": v.get("BODY_TYPE"),
+                        "categoria": v.get("BODY"),
                         "cilindrada": inferir_cilindrada(v.get("VERSION")),
                         "preco": float(v.get("PRICE", "0").replace(",", "").strip()) if v.get("PRICE") else 0,
                         "opcionais": v.get("ACCESSORIES"),
