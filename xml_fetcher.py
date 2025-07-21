@@ -160,7 +160,14 @@ def fetch_and_convert_xml():
                 ads = [ads]
             
             print(f"[INFO] Encontrados {len(ads)} anúncios")
-            
+
+            # Opcionais
+            opcionais = []
+            for feat in _to_list(v.get("FEATURES")):
+                val = feat.get("FEATURE") if isinstance(feat, dict) else feat
+                if val:
+                    opcionais.append(val)
+                    
             for v in ads:
                 try:
                     parsed = {
@@ -174,7 +181,7 @@ def fetch_and_convert_xml():
                         "km": v.get("MILEAGE"),
                         "cor": v.get("COLOR"),
                         "combustivel": v.get("FUEL"),
-                        "cambio": v.get("GEAR"),
+                        "cambio": v.get("gear"),
                         "motor": v.get("MOTOR"),
                         "portas": v.get("DOORS"),
                         "categoria": v.get("BODY"),
